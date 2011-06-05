@@ -1,0 +1,10 @@
+^dist/
+^django_model_utils\.egg-info/
+^HGREV$
+^\.coverage$
+^\.tox/
+^Django.*\.egg$
+
+syntax: glob
+*.pyc
+.DS_Store
