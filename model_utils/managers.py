@@ -1,3 +1,4 @@
+from abc import ABCMeta
 from types import ClassType
 import warnings
 
@@ -6,6 +7,9 @@ from django.db import models
 from django.db.models.fields.related import OneToOneField
 from django.db.models.manager import Manager
 from django.db.models.query import QuerySet
+
+from polymorphic import PolymorphicManager
+
 
 class InheritanceQuerySet(QuerySet):
     def select_subclasses(self, *subclasses):
@@ -84,7 +88,7 @@ class QueryManager(models.Manager):
         return qs
 
 
-class PassThroughManager(models.Manager):
+class PassThroughManagerBase(object):
     """
     Inherit from this Manager to enable you to call any methods from your
     custom QuerySet class from your manager. Simply define your QuerySet
@@ -103,12 +107,13 @@ class PassThroughManager(models.Manager):
         objects = PassThroughManager(PostQuerySet)
 
     """
+    __metaclass__ = ABCMeta
     # pickling causes recursion errors
     _deny_methods = ['__getstate__', '__setstate__', '_db']
 
     def __init__(self, queryset_cls=None):
         self._queryset_cls = queryset_cls
-        super(PassThroughManager, self).__init__()
+        super(PassThroughManagerBase, self).__init__()
 
     def __getattr__(self, name):
         if name in self._deny_methods:
@@ -122,6 +127,12 @@ class PassThroughManager(models.Manager):
                 kargs['using'] = self._db
             return self._queryset_cls(**kargs)
         return super(PassThroughManager, self).get_query_set()
+
+class PassThroughManager(PassThroughManagerBase, models.Manager):
+    pass
+
+class PassThroughPolymorphicManager(PolymorphicManager, PassThroughManagerBase):
+    pass
 
 
 def manager_from(*mixins, **kwds):

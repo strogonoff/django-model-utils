@@ -133,3 +133,7 @@ class Choices(object):
     def __repr__(self):
         return '%s(%s)' % (self.__class__.__name__,
                           ', '.join(("%s" % str(i) for i in self._full)))
+
+
+from .update import update
+from .slughifi import slughifi

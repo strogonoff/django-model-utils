@@ -8,10 +8,11 @@ from django.utils.translation import ugettext_lazy as _
 from django.db.models.fields import FieldDoesNotExist
 from django.core.exceptions import ImproperlyConfigured
 
-from model_utils.managers import manager_from, InheritanceCastMixin, \
+from .managers import manager_from, InheritanceCastMixin, \
     QueryManager
-from model_utils.fields import AutoCreatedField, AutoLastModifiedField, \
+from .fields import AutoCreatedField, AutoLastModifiedField, \
     StatusField, MonitorField
+from . import update
 
 class InheritanceCastModel(models.Model):
     """
@@ -131,3 +132,57 @@ def add_timeframed_query_manager(sender, **kwargs):
 
 models.signals.class_prepared.connect(add_status_query_managers)
 models.signals.class_prepared.connect(add_timeframed_query_manager)
+
+class PositionedModelMixin(object):
+    def get_position_field_name(self): return 'position'
+    def get_position_filter_args(self):
+        ''' Criteria which instances' positions are relative to.
+            For example, if it's the cart item model,
+            it could return {"cart": self.cart}.
+        '''
+        return {}
+    def refresh_positions(self):
+        "Update positions so that they increment by 1."
+        counter = 1
+        filter = self.get_position_filter_args()
+        position_f = self.get_position_field_name()
+        for obj in self.__class__.objects.filter(filter):
+            update(obj, **{position_f: counter})
+            counter += 1
+
+    def get_next_free_position(self):
+        self.refresh_positions() # Just in case
+        filter = self.get_position_filter_args()
+        position_f = self.get_position_field_name()
+        max_position = self.__class__.objects.filter(filter)\
+            .aggregate(Max(position_f))['%s_max' % position_f]
+        if max_position: return max_position + 1
+        else: return 1
+
+    def move_to(self, position):
+        ''' Exchanges positions between self and an object
+            with given position.
+            Returns False if no object with given position
+            is found (nothing to swap places with).
+        '''
+        position = int(position)
+        filter = self.get_position_filter_args()
+        filter[position_f] = position
+        position_f = self.get_position_field_name()
+        try:
+            # Find other variant with given new position
+            other = self.__class__.objects.get(filter)
+        except self.__class__.DoesNotExist:
+            return False
+        # Set temporary position to us
+        update(self, **{position_f: 0})
+        # Move other to our position
+        update(other, **{position_f: getattr(self, position_f)})
+        # Move us to other's position
+        update(self, **{position_f: position})
+        return position
+
+    def move_up(self, times=1):
+        return move_to(getattr(self, self.get_position_field_name()) - times)
+    def move_down(self, times=1):
+        return move_to(getattr(self, self.get_position_field_name()) + times)

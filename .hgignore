@@ -4,3 +4,7 @@
 ^\.coverage$
 ^\.tox/
 ^Django.*\.egg$
+
+syntax: glob
+*.pyc
+.DS_Store
