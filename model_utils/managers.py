@@ -8,7 +8,12 @@ from django.db.models.fields.related import OneToOneField
 from django.db.models.manager import Manager
 from django.db.models.query import QuerySet
 
-from polymorphic import PolymorphicManager
+try:
+    from polymorphic import PolymorphicManager
+except ImportError:
+    has_polymorphic = False
+else:
+    has_polymorphic = True
 
 
 class InheritanceQuerySet(QuerySet):
@@ -131,9 +136,10 @@ class PassThroughManagerBase(object):
 class PassThroughManager(PassThroughManagerBase, models.Manager):
     pass
 
-class PassThroughPolymorphicManager(PolymorphicManager, PassThroughManagerBase):
-    pass
-
+if has_polymorphic:
+    class PassThroughPolymorphicManager(PolymorphicManager,
+        PassThroughManagerBase):
+        pass
 
 def manager_from(*mixins, **kwds):
     """
